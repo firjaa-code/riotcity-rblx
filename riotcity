@@ -14,6 +14,9 @@ local locations = {
     {name = "Heist", pos = Vector3.new(252, -48, -1679)},
     {name = "Bank", pos = Vector3.new(677, -3, -1198)},
     {name = "Gas Station", pos = Vector3.new(736, -32, -486)},
+    {name = "Pintu Bank", pos = Vector3.new(690, -32, -1224)},
+    {name = "Pintu Heist", pos = Vector3.new(293, 7, -1710)},
+    {name = "Mansion", pos = Vector3.new(316, 0, -2459)},
 }
 
 -- ================= STATE =================
@@ -23,7 +26,7 @@ local wsLoopEnabled = false
 local wsValue = 30
 local instantPPEnabled = false
 
-local noclipConn
+local noclipConn = nil
 local infJumpConn
 local wsConn
 local instantPPConn
@@ -41,11 +44,28 @@ local function teleportTo(pos)
     hrp.CFrame = CFrame.new(pos)
 end
 
--- ================= FUNGSI NOCLIP =================
+-- ================= FUNGSI NOCLIP (FIXED) =================
 local function setNoclip(state)
     noclipEnabled = state
+
+    -- PENTING: selalu putuskan koneksi lama dulu, apapun statenya,
+    -- supaya tidak ada koneksi "hantu" yang terus memaksa CanCollide=false
+    if noclipConn then
+        noclipConn:Disconnect()
+        noclipConn = nil
+    end
+
     if state then
         noclipConn = RunService.Stepped:Connect(function()
+            -- Cek ulang tiap frame apakah noclip masih aktif,
+            -- kalau sudah dimatikan di tengah jalan, hentikan diri sendiri
+            if not noclipEnabled then
+                if noclipConn then
+                    noclipConn:Disconnect()
+                    noclipConn = nil
+                end
+                return
+            end
             local character = player.Character
             if character then
                 for _, part in pairs(character:GetDescendants()) do
@@ -56,10 +76,6 @@ local function setNoclip(state)
             end
         end)
     else
-        if noclipConn then
-            noclipConn:Disconnect()
-            noclipConn = nil
-        end
         local character = player.Character
         if character then
             for _, part in pairs(character:GetDescendants()) do
@@ -74,6 +90,10 @@ end
 -- ================= FUNGSI INFINITE JUMP =================
 local function setInfJump(state)
     infJumpEnabled = state
+    if infJumpConn then
+        infJumpConn:Disconnect()
+        infJumpConn = nil
+    end
     if state then
         infJumpConn = UserInputService.JumpRequest:Connect(function()
             local character = player.Character
@@ -84,11 +104,6 @@ local function setInfJump(state)
                 end
             end
         end)
-    else
-        if infJumpConn then
-            infJumpConn:Disconnect()
-            infJumpConn = nil
-        end
     end
 end
 
@@ -96,8 +111,19 @@ end
 local function setWSLoop(state, value)
     wsLoopEnabled = state
     wsValue = value or wsValue
+    if wsConn then
+        wsConn:Disconnect()
+        wsConn = nil
+    end
     if state then
         wsConn = RunService.Heartbeat:Connect(function()
+            if not wsLoopEnabled then
+                if wsConn then
+                    wsConn:Disconnect()
+                    wsConn = nil
+                end
+                return
+            end
             local character = player.Character
             if character then
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -107,10 +133,6 @@ local function setWSLoop(state, value)
             end
         end)
     else
-        if wsConn then
-            wsConn:Disconnect()
-            wsConn = nil
-        end
         local character = player.Character
         if character then
             local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -134,6 +156,10 @@ end
 
 local function setInstantPP(state)
     instantPPEnabled = state
+    if instantPPConn then
+        instantPPConn:Disconnect()
+        instantPPConn = nil
+    end
     if state then
         for _, prompt in ipairs(collectPrompts()) do
             if originalHoldDurations[prompt] == nil then
@@ -148,10 +174,6 @@ local function setInstantPP(state)
             end
         end)
     else
-        if instantPPConn then
-            instantPPConn:Disconnect()
-            instantPPConn = nil
-        end
         for prompt, dur in pairs(originalHoldDurations) do
             if prompt and prompt.Parent then
                 prompt.HoldDuration = dur
@@ -161,7 +183,7 @@ local function setInstantPP(state)
     end
 end
 
--- ========== BUAT GUI (DIPERKECIL UNTUK MOBILE) ==========
+-- ========== BUAT GUI (MOBILE) ==========
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "TeleportGUI"
 screenGui.ResetOnSpawn = false
@@ -170,12 +192,12 @@ screenGui.Parent = playerGui
 local ROW_HEIGHT = 26
 local ROW_GAP = 4
 local TITLE_HEIGHT = 28
-local TOTAL_ROWS = #locations + 4 -- 4 lokasi biasa + noclip + infjump + ws + instantpp
+local TOTAL_ROWS = #locations + 4
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 150, 0, TITLE_HEIGHT + (TOTAL_ROWS * (ROW_HEIGHT + ROW_GAP)) + 8)
-mainFrame.Position = UDim2.new(0.5, -75, 0.5, -160)
+mainFrame.Position = UDim2.new(0.5, -75, 0.5, -180)
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
@@ -185,7 +207,6 @@ local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 6)
 corner.Parent = mainFrame
 
--- Titlebar
 local titleBar = Instance.new("Frame")
 titleBar.Name = "TitleBar"
 titleBar.Size = UDim2.new(1, 0, 0, TITLE_HEIGHT)
@@ -208,7 +229,6 @@ titleLabel.TextSize = 12
 titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 titleLabel.Parent = titleBar
 
--- Tombol minimize
 local minimizeBtn = Instance.new("TextButton")
 minimizeBtn.Size = UDim2.new(0, 22, 0, 22)
 minimizeBtn.Position = UDim2.new(1, -50, 0, 3)
@@ -223,7 +243,6 @@ local minimizeCorner = Instance.new("UICorner")
 minimizeCorner.CornerRadius = UDim.new(0, 5)
 minimizeCorner.Parent = minimizeBtn
 
--- Tombol X
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 22, 0, 22)
 closeBtn.Position = UDim2.new(1, -24, 0, 3)
@@ -242,7 +261,6 @@ closeBtn.MouseButton1Click:Connect(function()
     screenGui:Destroy()
 end)
 
--- Container tombol
 local buttonContainer = Instance.new("Frame")
 buttonContainer.Name = "ButtonContainer"
 buttonContainer.Size = UDim2.new(1, -12, 1, -(TITLE_HEIGHT + 8))
@@ -254,7 +272,6 @@ local listLayout = Instance.new("UIListLayout")
 listLayout.Padding = UDim.new(0, ROW_GAP)
 listLayout.Parent = buttonContainer
 
--- Fungsi bantu buat tombol lokasi
 local function createLocationButton(text, callback)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, ROW_HEIGHT)
@@ -287,7 +304,6 @@ for _, loc in ipairs(locations) do
     end)
 end
 
--- ================= TOMBOL TOGGLE =================
 local function createToggleButton(text, onToggle)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, ROW_HEIGHT)
@@ -325,7 +341,6 @@ createToggleButton("Instant PP", function(state)
     setInstantPP(state)
 end)
 
--- ================= TOMBOL LOOP WALKSPEED =================
 local wsFrame = Instance.new("Frame")
 wsFrame.Size = UDim2.new(1, 0, 0, ROW_HEIGHT)
 wsFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
@@ -380,7 +395,6 @@ wsToggleBtn.MouseButton1Click:Connect(function()
     setWSLoop(wsLoopEnabled, tonumber(wsInput.Text) or 30)
 end)
 
--- ========== FUNGSI MINIMIZE ==========
 local minimized = false
 local expandedSize = mainFrame.Size
 
@@ -397,7 +411,6 @@ minimizeBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ========== FUNGSI DRAG ==========
 local dragging = false
 local dragInput, dragStart, startPos
 
@@ -435,7 +448,6 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- ========== RE-APPLY SAAT CHARACTER RESPAWN ==========
 player.CharacterAdded:Connect(function(character)
     task.wait(1)
     if noclipEnabled then
